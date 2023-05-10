@@ -1,20 +1,20 @@
 # Feather Database Component
 
-## Getting started 
+## Getting started
 
 ```swift
-.package(url: "https://github.com/feathercms/database", from: "1.0.0"),
+.package(url: "https://github.com/feathercms/feather-database", from: "1.0.0"),
 ```
 
 ```swift
-.product(name: "FeatherDatabase", package: "feather-db"),
+.product(name: "FeatherDatabase", package: "feather-database"),
 ```
 
 Database provider services
 
 ```swift
-.product(name: "FeatherPostgres", package: "feather-db"),
-.product(name: "FeatherSQLite", package: "feather-db"),
+.product(name: "FeatherPostgres", package: "feather-database"),
+.product(name: "FeatherSQLite", package: "feather-database"),
 ```    
 
 ## Credits
