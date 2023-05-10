@@ -2,7 +2,7 @@
 import PackageDescription
 
 let package = Package(
-    name: "feather-db",
+    name: "feather-database",
     platforms: [
        .macOS(.v12),
     ],
