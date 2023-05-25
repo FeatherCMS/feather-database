@@ -18,7 +18,10 @@ final class FeatherSQLiteDatabaseTests: XCTestCase {
     private func runTest(
         _ block: (FeatherDatabase) async throws -> Void
     ) async throws {
-        let logger = Logger(label: "test-logger")
+        var logger = Logger(label: "test-logger")
+        
+        logger.logLevel = .trace
+        
         let threadPool = NIOThreadPool(numberOfThreads: 1)
         threadPool.start()
         let eventLoopGroup = MultiThreadedEventLoopGroup(numberOfThreads: 1)
@@ -162,7 +165,6 @@ final class FeatherSQLiteDatabaseTests: XCTestCase {
     }
 
     func testBindings() async throws {
-
         try await runTest { db in
             try await db.execute([
                 .init(
@@ -238,9 +240,6 @@ final class FeatherSQLiteDatabaseTests: XCTestCase {
 
     func testJoin() async throws {
         try await runTest { db in
-            
-            
-            
             try await db.execute([
                 .init(
                     unsafeSQL:
@@ -308,5 +307,94 @@ final class FeatherSQLiteDatabaseTests: XCTestCase {
             XCTAssertEqual(res.count, 36)
         }
     }
-
+    
+    struct RowCount: Decodable {
+        let count: Int
+        
+    }
+     
+    struct Score: Codable {
+        let id: UUID
+        let score: Int
+        
+    }
+    
+    func testCRUD() async throws {
+        try await runTest { db in
+            
+            //create table
+            try await db.execute(
+                #"CREATE TABLE IF NOT EXISTS "scores" ("id" uuid PRIMARY KEY, "score" INTEGER NOT NULL);"#
+            )
+            
+            let uuid = UUID()
+            
+            // add
+            _ = try await db.execute(
+                .init(
+                    unsafeSQL: "INSERT INTO scores (id, score) VALUES (:id:, :score:)",
+                    bindings: Score(id: uuid, score: 1)
+                ) , rowType: Score.self
+            )
+            
+            // add another
+            _ = try await db.execute(
+                .init(
+                    unsafeSQL: "INSERT INTO scores (id, score) VALUES (:id:, :score:)",
+                    bindings: Score(id: UUID(), score: 2)
+                ) , rowType: Score.self
+            )
+            
+            // check count
+            let rows = try await db.execute(
+                .init(
+                    unsafeSQL: "SELECT COUNT(id) as count FROM scores"
+                ),
+                rowType: RowCount.self
+            ).first
+            XCTAssertEqual(rows?.count, 2)
+              
+            // update first
+            let update = try await db.execute(
+                .init(
+                    unsafeSQL: "UPDATE scores SET score=:score: WHERE id='\(uuid)' RETURNING *",
+                    bindings: Score(id: uuid, score: 3)
+                ) , rowType: Score.self
+            ).first
+            XCTAssertEqual(update?.score, 3)
+            
+            // delete first
+            _ = try await db.execute(
+                .init(
+                    unsafeSQL: "DELETE FROM scores where id = '\(uuid)' RETURNING *"
+                )
+            )
+            
+            // check count again
+            let rowsAgain = try await db.execute(
+                .init(
+                    unsafeSQL: "SELECT COUNT(id) as count FROM scores"
+                ),
+                rowType: RowCount.self
+            ).first
+            XCTAssertEqual(rowsAgain?.count, 1)
+            
+            // delete all
+            _ = try await db.execute(
+                .init(
+                    unsafeSQL: "DELETE FROM scores RETURNING *"
+                )
+            )
+            
+            // check count last
+            let rowsLast = try await db.execute(
+                .init(
+                    unsafeSQL: "SELECT COUNT(id) as count FROM scores"
+                ),
+                rowType: RowCount.self
+            ).first
+            XCTAssertEqual(rowsLast?.count, 0)
+        }
+    }
+    
 }
